@@ -199,11 +199,13 @@ if internet_connection():
     else:
         finish_date=int(msg[-1].replace('\n',''))
         df=pd.read_excel('out_data.xlsx')
-        tokens = second_get_tokens(get_base_url(),finish_date)
+        tokens = second_get_tokens(get_base_url2(),finish_date)
         with open('log.txt', 'a') as f:
             f.write(f'{int(msg[0]) + 1},{time.time()},{tokens[1]},{tokens[2]}\n')
         df2 = get_data_by_tokens(tokens[0], try_num, timeout)
         df=pd.concat([df,df2],axis=0)
         df.to_excel('out_data.xlsx')
         con=sqlite3.connect('real_state.db')
+        cur=con.cursor()
+        cur.execute("DROP table out_data")
         df.to_sql('out_data',con)
