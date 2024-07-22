@@ -154,6 +154,13 @@ def mean_exp(inp_column):
 
 
 #
+def build_exp_smooth_trend1d(inp_ser):
+    assert type(inp_ser) == numpy.ndarray or type(inp_ser) == pandas.core.series.series or type(inp_ser) == list
+    men = mean_exp(exp_change(inp_ser))
+    return numpy.array([inp_ser[0] * (men ** i) for i in range(len(inp_ser))])
+
+
+#
 def build_exp_smooth_trend(inp_dataframe):
     """return smooth grom exponential by static mean return"""
     assert type(inp_dataframe) == pandas.core.frame.DataFrame or type(inp_dataframe) == numpy.ndarray or type(
@@ -177,7 +184,26 @@ def build_exp_smooth_trend(inp_dataframe):
 
 
 #
-def build_exp_fit(inp_dataframe):
+def build_exp_fit1d(inp_ser):
+    assert progress_iterable_condition(inp_ser)
+    x_f = np.arange(len(inp_ser)) / len(inp_ser)
+    if type(inp_ser) == numpy.ndarray:
+        y_f = inp_ser[:]
+    elif type(inp_ser) == pandas.core.series.series:
+        y_f = inp_ser.values
+    elif type(inp_ser) == list:
+        y_f = numpy.array(inp_ser)
+    else:
+        return False
+
+    def func(x_, a_, b_, c_, d_):
+        return a_ + b_ * numpy.exp(c_ + d_ * x_)
+
+    cfs = curve_fit(func, x_f, y_f)
+    return cfs[0][0], cfs[0][1], cfs[0][2], cfs[0][3]
+
+
+def build_exp_fit(inp_dataframe, inp_x: None):
     """fit data on exponential curve fit on input data"""
     try:
         assert type(inp_dataframe) == pandas.core.frame.DataFrame or type(inp_dataframe) == numpy.ndarray or type(
@@ -205,6 +231,41 @@ def build_exp_fit(inp_dataframe):
         return fit_data
     except Exception as e:
         print(e.__traceback__.tb_lineno, e.__str__(), e)
+
+
+#
+def build_exp_smooth_func(inp_dataframe):
+    est = build_exp_smooth_trend(inp_dataframe)
+    hyperparam = build_exp_fit1d(est)
+    return hyperparam[0], hyperparam[1], hyperparam[2], hyperparam[4]
+
+
+def exp_smooth_predict(inp_dataframe, inp_x):
+    h = build_exp_smooth_func(inp_dataframe)
+    validate_x = inp_x / len(inp_dataframe)
+    return h[0] + h[1] * numpy.exp(h[2] + h[3] * validate_x)
+
+
+#
+def exp_smooth_curve1d(inp_ser, period: int, look_forward: int = 1):
+    assert type(inp_ser) == numpy.ndarray or type(inp_ser) == pandas.core.series.series or type(inp_ser) == list
+    ln = len(inp_ser)
+    out_data = np.array([np.nan] * ln)
+    for i in range(ln - period):
+        men_back = mean_exp(exp_change(inp_ser[i:period + i]))
+        out_data[period + i] = inp_ser[i] * (men_back ** period)
+    return out_data
+
+
+#
+def blind_exp_smooth_curve1d(inp_ser, look_forward: int = 1):
+    assert type(inp_ser) == numpy.ndarray or type(inp_ser) == pandas.core.series.series or type(inp_ser) == list
+    ln = len(inp_ser)
+    out_data = np.array([np.nan] * ln)
+    for i in range(2, ln):
+        men_back = mean_exp(exp_change(inp_ser[:i]))
+        out_data[i] = inp_ser[0] * (men_back ** i)
+    return out_data
 
 
 #
