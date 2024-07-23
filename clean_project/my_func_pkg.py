@@ -9,6 +9,23 @@ from sklearn.linear_model import LinearRegression
 
 
 #
+def one_dimension_data(inp_data):
+    if type(inp_data) == numpy.ndarray:
+        if len(inp_data.shape) == 1:
+            return True
+    elif type(inp_data) == pandas.core.series.series:
+        return True
+    elif type(inp_data) == list:
+        if type(inp_data[0]) == list or type(inp_data[0]) == numpy.ndarray or type(
+                inp_data[0]) == pandas.core.series.series:
+            return False
+        else:
+            return True
+    else:
+        return False
+
+
+#
 def progress_iterable_condition(inp_data):
     """check the iteration condition and return True and numpy array of data"""
     try:
@@ -266,6 +283,65 @@ def blind_exp_smooth_curve1d(inp_ser, look_forward: int = 1):
         men_back = mean_exp(exp_change(inp_ser[:i]))
         out_data[i] = inp_ser[0] * (men_back ** i)
     return out_data
+
+
+#
+def exp_smooth_predict_final(inp_ser, forward_walk: int = 1):
+    ln = len(inp_ser)
+    out_data = np.array([np.nan] * (ln + forward_walk))
+    men_f = mean_exp(exp_change(inp_ser))
+    for i in range(ln, ln + forward_walk):
+        out_data[i] = inp_ser[0] * (men_f ** i)
+    return out_data
+
+
+#
+def exp_boundary_smooth_curve(inp_ser, forward_wlk: int = 1, degree: int = 1):
+    ln = len(inp_ser)
+    out_data_base = np.array([np.nan] * (ln + forward_wlk))
+    out_data_base[:ln] = blind_exp_smooth_curve1d(inp_ser)
+    out_data_base[ln:] = (exp_smooth_predict_final(inp_ser, forward_walk=forward_wlk))[-forward_wlk:]
+    men = numpy.mean(inp_ser[2:] / out_data_base[2:ln])
+    out_data_upper = out_data_base * (men * degree)
+    out_data_lower = out_data_base / (men * degree)
+    return numpy.array([out_data_base, out_data_lower, out_data_lower]).T
+
+
+#
+def exp_fit_curve(inp_ser, forward_walk: int = 1):
+    assert one_dimension_data(inp_ser)
+    ln = len(inp_ser)
+
+    def func(x_, a_, b_):
+        return a_ + b_ * numpy.exp(x_)
+
+    x_f = np.arange(ln) / ln
+    y_f = inp_ser[:]
+
+    params = (curve_fit(func, xdata=x_f, ydata=y_f))[0]
+    x_test = np.arange(ln + forward_walk) / ln
+    return func(x_test, params[0], params[1])
+
+
+#
+def blind_exp_fit_curve(inp_ser, forward_walk_: int = 1):
+    ln = len(inp_ser)
+    out_data = np.array([numpy.nan] * (ln + forward_walk_))
+    for i in range(3, ln):
+        out_data[i] = (exp_fit_curve(inp_ser[:i], forward_walk=forward_walk_))[-1]
+    return out_data
+
+
+#
+def boundary_exp_fit_curve(inp_ser, forward_walk: int = 1, degree: int = 1):
+    ln = len(inp_ser)
+    out_data_base = numpy.array([numpy.nan] * (ln + forward_walk))
+    out_data_base[:ln] = blind_exp_fit_curve(inp_ser)[:ln]
+    men = mean_exp(inp_ser[3:] / out_data_base[3:ln])
+    out_data_base[ln:] = exp_fit_curve(inp_ser, forward_walk)[ln:]
+    out_data_upper = out_data_base * (men * degree)
+    out_data_lower = out_data_base / (men * degree)
+    return numpy.array([out_data_base, out_data_upper, out_data_lower]).T
 
 
 #
