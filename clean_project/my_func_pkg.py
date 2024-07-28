@@ -308,6 +308,60 @@ def exp_boundary_smooth_curve(inp_ser, forward_wlk: int = 1, degree: int = 1):
 
 
 #
+def boundary_exp_smooth_curve2(inp_ser, forward_wlk: int = 1):
+    ln = len(inp_ser)
+    out_data = []
+    for i in range(3, ln):
+        out_data.append(exp_smooth_predict_final(inp_ser[:i], forward_wlk))
+    upper = []
+    lower = []
+    base = []
+    for i in range(len(out_data)):
+        col = []
+        for j in range(ln):
+            try:
+                col.append(out_data[j][i])
+            except:
+                continue
+        base.append(numpy.nanmean(col))
+        upper.append(numpy.nanmax(col))
+        lower.append(numpy.nanmin(col))
+    return numpy.array([lower, base, upper]).T
+
+
+#
+def volume_moving_average(inp_ser_price, inp_ser_volume, period: int):
+    assert one_dimension_data(inp_ser_price) and one_dimension_data(inp_ser_volume)
+    assert len(inp_ser_volume) == len(inp_ser_price)
+    ln = len(inp_ser_price)
+    avg = numpy.array([numpy.nan] * ln)
+    for i in range(period, ln):
+        avg[i] = numpy.sum(inp_ser_price[i - period:i] * inp_ser_volume[i - period:i]) / numpy.sum(
+            inp_ser_volume[i - period:i])
+    return avg
+
+
+#
+def blind_volume_moving_average(inp_ser_price, inp_ser_volume):
+    assert one_dimension_data(inp_ser_price) and one_dimension_data(inp_ser_volume)
+    assert len(inp_ser_price) == len(inp_ser_volume)
+    ln = len(inp_ser_price)
+    avg = numpy.array([numpy.nan] * ln)
+    for i in range(2, ln):
+        avg[i] = numpy.sum(inp_ser_price[:i] * inp_ser_volume[:i]) / numpy.sum(inp_ser_volume[:i])
+    return avg
+
+
+#
+def boundary_exp_smooth_curve_predict(inp_ser, forward_walk: int = 1, feature_len: int = 1, degree: float = 1):
+    bescf = boundary_exp_smooth_curve2(inp_ser, forward_walk)
+    men = numpy.nanmean(inp_ser[3:] / bescf[:, 1])
+    espff = exp_smooth_predict_final(inp_ser, forward_walk=feature_len)
+    rspff = numpy.array([espff / (men * degree), espff, (men * degree) * espff]).T
+    return numpy.concatenate([bescf, rspff[-forward_walk:, :]], axis=0)
+
+
+#
 def exp_fit_curve(inp_ser, forward_walk: int = 1):
     assert one_dimension_data(inp_ser)
     ln = len(inp_ser)
@@ -333,7 +387,7 @@ def blind_exp_fit_curve(inp_ser, forward_walk_: int = 1):
 
 
 #
-def boundary_exp_fit_curve(inp_ser, forward_walk: int = 1, degree: int = 1):
+def boundary_exp_fit_curve(inp_ser, forward_walk: int = 1, degree: float = 1):
     ln = len(inp_ser)
     out_data_base = numpy.array([numpy.nan] * (ln + forward_walk))
     out_data_base[:ln] = blind_exp_fit_curve(inp_ser)[:ln]
